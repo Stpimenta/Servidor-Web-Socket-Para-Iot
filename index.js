@@ -51,7 +51,7 @@ wss.on('connection', function connection(ws) {
             console.log("ta errado essa merda");
         }
 
-        if(validarJson(json)){
+        if(validJson(json)){
            console.log(json.metodo);
            //metodo do usuario se ele e leitor ou publica
             if(json.metodo == "read" ){
@@ -101,7 +101,7 @@ wss.on('connection', function connection(ws) {
 });
 
 //fucao para validar o formato
-function validarJson(json) { 
+function validJson(json) { 
     if (!json.category||!json.metodo||!json.mensagem) {
         return false;
     }
