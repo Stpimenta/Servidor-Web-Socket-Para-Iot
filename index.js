@@ -2,114 +2,124 @@
 const { WebSocketServer } = require('ws');
 require("dotenv").config();
 
-//definindo a porta com variaveis de ambiente
-const Port = process.env.SERVERPORT||3000 //caso n de para executar na 4000 o server vai para 3000
+
+//-objeto de usuarios que guarda as conexoes websocket-//
+var Users = {}; 
+const Port = process.env.SERVERPORT||3000 
+
 //--instanciando ws---//
 const wss = new WebSocketServer({port: Port});
 console.log(`o servidor roda na porta ${Port}`);
 
-//-variavel que cuida dos usuarios-//
-var Users = {}; //cada usuario e guardado nesse objeto
 
-//--metodos do servidor websocket como connect, receber mensagem, erro e conexao fechada--//
-wss.on('connection', function connection(ws) {
-    //atribui isAlive para ws de forma que fique acessivel a todo escopo
-    //isso e um controle para ver se o client ainda esta conectado, ele pinga e espera uma resposta
-    ws.isAlive = true;
-        ws.on('pong',function(){
-            ws.isAlive = true
-        })
-
-        const interval = setInterval(()=>{
-            if(ws.isAlive == false){
-                for (let category in Users) {
-                    Users[category] = Users[category].filter(client => client !== ws);
-                    
+//====Funções que serão usadas no codigo=======//
+function Controller(client,data) { 
+    try {
+        const MessageJson = JSON.parse(data);//pega a mensagem e conver para Json  
+        if(MessageJson.category && MessageJson.metodo){
+            if(MessageJson.metodo.toLowerCase() == "read"){
+                 //o objeto guarda categorias aqui ele verifica se a categoria do leitor ja existe
+                if(!Users[MessageJson.category]){
+                    Users[MessageJson.category] = [] //se n existir ele cria
                 }
-
-                console.log("usuario removido");
-                ws.close();
-                ws.terminate();
-                ws.isAlive = true
-                clearInterval(interval);
-            }
-            ws.ping();
-            ws.isAlive=false;
-        },15000)
-   
-    ws.send('bem vindo sou um servidor para controlar vc, para se cadastrar me envie uma mensagem com as seguintes informaçoes e no padrão json: { "category": "//categoria que deseja participar",     "metodo": "//publish ou read",     "mensagem": "//caso publish mensagem a ser enviada, se for read escreve algo n deixa nulo" }');
-    ws.on('message', function message(data) {
-        
-
-        console.log('received: %s', data);
-
-        //receber a mensagem e tratar ver se esta no foramto json
-        let json = ""
-        try{
-             json = JSON.parse(data);
-        }catch(e){
-            console.log("ta errado essa merda");
-        }
-
-        if(validJson(json)){
-           console.log(json.metodo);
-           //metodo do usuario se ele e leitor ou publica
-            if(json.metodo == "read" ){
-                //o objeto guarda categorias aqui ele verifica se a categoria do leitor ja existe
-                if(!Users[json.category]){
-                    Users[json.category] = [] //se n existir ele cria
-                }
-              // Verifique se o cliente já está registrado na categoria
-                if (!Users[json.category].includes(ws)) { //quando eu quero ver dentro do vetor/array uso includes, e verifico se esse cliente existe na categoria, a funcao retorna true se existir por isso uso !
-                    Users[json.category].push(ws); 
-                    ws.send(`cadastrado na categoria:${json.category}`);
+                // Verifique se o cliente já está registrado na categoria
+                if (!Users[MessageJson.category].includes(client)) { //quando eu quero ver dentro do vetor/array uso includes, e verifico se esse cliente existe na categoria, a funcao retorna true se existir por isso uso !
+                    Users[MessageJson.category].push(client); 
+                    client.send(`cadastrado na categoria:${MessageJson.category}`);
                 } else {
-                    ws.send("sem duplicata");
-                }
+                    client.send("voce ja esta cadastrado nessa categoria");
+                  }   
             }
-
-            if(json.metodo == "publish" ){ //se especificar que é um publish 
-                
-                if(Users[json.category]){
-                    ws.send("mensagem enviada");
-                  sendMessageToClients(json.category,json.mensagem);
-                }else{
-                    ws.send("categoria para publish invalida");
-                }
-                
-            }
-          
-        }else{ // foramto errado
-            console.log("formato errado");
-            ws.send("formato errado animal");
-        }
-        
-    });
-
-    ws.on('close', function() { //cliente desconectado
-        console.log('Cliente desconectado');
-        // Encontre a categoria do cliente desconectado
-        for (let category in Users) {
-            Users[category] = Users[category].filter(client => client !== ws);
             
-        }
+           if(MessageJson.metodo.toLowerCase() == "publish" && MessageJson.mensagem){
+              if(Users[MessageJson.category]){
+                sendMessageToClients(MessageJson.category,MessageJson.mensagem,client, MessageJson.response)
+              }else{
+                 client.send("Verifique a conexão do seu dispositico, e a categoria cadastrada!");
+               }
+           } 
+
+           if(MessageJson.metodo.toLowerCase() == "categorias"){
+                client.send("categorias");
+                for (const keys in Users){
+                    client.send(keys);
+                }
+            } 
+
+        }else{
+            client.send("padrão errado, category e metodo são obrigatorios!");
+          }
+    } catch (error) {
+        client.send("formato errado");
+        console.log(error);
+      }
+}
+
+// funcão para enviar mensagem a um cliente e receber uma de volta
+function sendMessageToClients(category, message, clientpublish, publishresponse) {
+    clientpublish.send("mensagem enviada")
+    Users[category].forEach(async (client)=>{
+       client.send(message);
+       if(publishresponse == "true"){
+            const response = new Promise ((resolve,reject)=>{
+                client.on('message', function message(data) {
+                    const returndata = JSON.parse(data)
+                    if(/*returndata.metodo == "response" &&*/ returndata.mensagem){
+                        resolve(returndata.mensagem);
+                    }else{
+                        reject("formato errado");
+                    }
+                    resolve(data); 
+                })
+                const timeout = setTimeout(()=>{
+                    clearTimeout(timeout);
+                    reject("mensagem de volta não recebida, verifique a conexão")
+                },7000)
+            })
+            try {
+                clientpublish.send(await response)
+            } catch (error) {
+                clientpublish.send(error)
+            }
+       }
+    })
+}
+
+
+
+
+//--abre uma instancia de conexão do servidor---//
+wss.on('connection', function connection(ws) {
+    //mensagem que o cliente recebe quando se conecta
+    ws.send('bem vindo sou um servidor para controlar vc, para se cadastrar me envie uma mensagem com as seguintes informaçoes e no padrão json: { --obrigatorios--"category": "//categoria que deseja participar",     "metodo": "//publish,read,response ou main"      ---caso publish adicione a mensagem "mensagem":      -------caso espere uma resposta (opcional) "response":true}');
+    ws.on('message', function message(data) {
+        Controller(ws,data);
     });
+    //atribui isAlive para o objeto ws de forma que fique acessivel a todo escopo
+    ws.isAlive = true;
+    ws.on('pong',function(){
+        ws.isAlive = true
+    })
+    //define um intervalo para os pings e mata clientes desconectados
+    const interval = setInterval(()=>{
+           if(ws.isAlive == false){
+               ws.terminate();
+               clearInterval(interval);
+               //percorre todas as keys do objeto, category retorna cada categoria
+               for(let category in Users){
+                    let resultados = Users[category].filter((UsersArr)=> UsersArr != ws); //filter recebe cada elemento do array faz uma comparação e retorna um novo array
+                    Users[category] = resultados
 
+                    //verifica se o tamanho do array da categoria é zero para exluir
+                    if(Users[category].length == 0){
+                        delete Users[category]
+                    }
+               }
+              
+           }
 
-    
-   
+           ws.ping();
+           ws.isAlive=false;
+    },1000)
 });
 
-//fucao para validar o formato
-function validJson(json) { 
-    if (!json.category||!json.metodo||!json.mensagem) {
-        return false;
-    }
-    return true;
-}
-
-function sendMessageToClients(category, message) {
-    Users[category].forEach((client)=>{ //foreach percorre todos os elementos de um array no caso o array da categoria informada e realiza uma acao no casso enviar a mensagem, client e cada objeto que esta sendo analisado pelo foreach.
-         client.send(message);
-    });
-}
