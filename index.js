@@ -63,18 +63,23 @@ function sendMessageToClients(category, message, clientpublish, publishresponse)
        if(publishresponse == "true"){
             const response = new Promise ((resolve,reject)=>{
                 client.on('message', function message(data) {
-                    const returndata = JSON.parse(data)
-                    if(/*returndata.metodo == "response" &&*/ returndata.mensagem){
-                        resolve(returndata.mensagem);
-                    }else{
-                        reject("formato errado");
+                    try {
+                        const returndata = JSON.parse(data)
+                        if(/*returndata.metodo == "response" &&*/ returndata.mensagem){
+                            resolve(returndata.mensagem);
+                        }else{
+                            reject("formato errado no arduino");
+                        }
+                        resolve(data); 
+                    } catch (error) {
+                        
                     }
-                    resolve(data); 
+                   
                 })
                 const timeout = setTimeout(()=>{
                     clearTimeout(timeout);
                     reject("mensagem de volta não recebida, verifique a conexão")
-                },7000)
+                },15000)
             })
             try {
                 clientpublish.send(await response)
