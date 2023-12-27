@@ -9,6 +9,7 @@ yarn start/yarn dev iniciam, dev esta com nodemon
 
 
 //--------O projeto esta em sua fase inicial e irei continuar desenvolvendo essa ideia.-----//
+//--------A ideia é fazer um protocolo mqtt com mais funcoes para o contexto de automação residencial.-----//
 
 
 
