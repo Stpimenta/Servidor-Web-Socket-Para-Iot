@@ -15,39 +15,56 @@ console.log(`o servidor roda na porta ${Port}`);
 //====Funções que serão usadas no codigo=======//
 function Controller(client,data) { 
     try {
-        const MessageJson = JSON.parse(data);//pega a mensagem e conver para Json  
-        if(MessageJson.category && MessageJson.metodo){
-            if(MessageJson.metodo.toLowerCase() == "read"){
-                 //o objeto guarda categorias aqui ele verifica se a categoria do leitor ja existe
+        const MessageJson = JSON.parse(data);//pega a mensagem e conver para Json
+        if(MessageJson.metod){
+            //leitura
+            if(MessageJson.metod.toLowerCase() == "read"){
+                    //o objeto guarda categorias aqui ele verifica se a categoria do leitor ja existe
                 if(!Users[MessageJson.category]){
                     Users[MessageJson.category] = [] //se n existir ele cria
-                }
-                // Verifique se o cliente já está registrado na categoria
+                 }
+                    // Verifique se o cliente já está registrado na categoria
                 if (!Users[MessageJson.category].includes(client)) { //quando eu quero ver dentro do vetor/array uso includes, e verifico se esse cliente existe na categoria, a funcao retorna true se existir por isso uso !
-                    Users[MessageJson.category].push(client); 
-                    client.send(`cadastrado na categoria:${MessageJson.category}`);
+                        Users[MessageJson.category].push(client);
+                        client.send(`cadastrado na categoria: ${MessageJson.category}`);    
                 } else {
-                    client.send("voce ja esta cadastrado nessa categoria");
-                  }   
+                        client.send("voce ja esta cadastrado nessa categoria");
+                }       
             }
             
-           if(MessageJson.metodo.toLowerCase() == "publish" && MessageJson.mensagem){
-              if(Users[MessageJson.category]){
-                sendMessageToClients(MessageJson.category,MessageJson.mensagem,client, MessageJson.response)
-              }else{
-                 client.send("Verifique a conexão do seu dispositico, e a categoria cadastrada!");
-               }
-           } 
-
-           if(MessageJson.metodo.toLowerCase() == "categorias"){
-                client.send("categorias");
-                for (const keys in Users){
-                    client.send(keys);
+            //publicação
+           if(MessageJson.metod.toLowerCase() == "publish" && MessageJson.menssage && MessageJson.category){
+                //forma para enviar msg a mais de um usuario por vez
+                const menssagemtratada = MessageJson.menssage.split('-') 
+                const categorytratada = MessageJson.category.split('-')
+                const responsetratada = MessageJson.response.split('-')
+                for(position in categorytratada){
+                    if(Users[categorytratada[position]]){
+                        client.send("mensagem do "+categorytratada[position]+" enviada");
+                        sendMessageToClients(categorytratada[position], menssagemtratada[position], client, responsetratada[position]);
+                    }else{
+                        client.send("verifique a conexão do "+categorytratada[position]);
+                     }
                 }
+
+                // categorytratada.forEach((category,position) => {
+                //         console.log(position, category)
+                // });
+
+            //   if(Users[MessageJson.category]){
+            //     sendMessageToClients(MessageJson.category,MessageJson.mensagem,client, MessageJson.response)
+            //   }else{
+            //      client.send("Verifique a conexão do seu dispositico, e a categoria cadastrada!");
+            //    }
+           } 
+           
+           //consultar categorias
+           if(MessageJson.metod.toLowerCase() == "categorias"){
+                client.send(Object.keys(Users).toString("utf8"));
             } 
 
         }else{
-            client.send("padrão errado, category e metodo são obrigatorios!");
+            client.send("padrão errado, metodo é obrigatorio!");
           }
     } catch (error) {
         client.send("formato errado");
@@ -57,32 +74,34 @@ function Controller(client,data) {
 
 // funcão para enviar mensagem a um cliente e receber uma de volta
 function sendMessageToClients(category, message, clientpublish, publishresponse) {
-    clientpublish.send("mensagem enviada")
     Users[category].forEach(async (client)=>{
        client.send(message);
+       let time = message[0] == "u" ? 60000:5000
        if(publishresponse == "true"){
             const response = new Promise ((resolve,reject)=>{
-                client.on('message', function message(data) {
+                const returnmessage = (data) => {
                     try {
                         const returndata = JSON.parse(data)
-                        if(/*returndata.metodo == "response" &&*/ returndata.mensagem){
-                            resolve(returndata.mensagem);
+                        if(/*returndata.metodo == "response" &&*/ returndata.menssage){
+                            resolve(returndata.menssage);
                         }else{
                             reject("formato errado no arduino");
                         }
-                        resolve(data); 
                     } catch (error) {
-                        
-                    }
-                   
-                })
+                        reject("formato errado no jason");
+                      }
+                    client.removeListener("message", returnmessage);
+                }
+                client.on('message', returnmessage)
                 const timeout = setTimeout(()=>{
+                    client.removeListener("message", returnmessage);
                     clearTimeout(timeout);
-                    reject("mensagem de volta não recebida, verifique a conexão")
-                },15000)
+                    reject("mensagem de volta não recebida, verifique a conexão do " + category)
+                },time)
+
             })
             try {
-                clientpublish.send(await response)
+                clientpublish.send("resposta de "+ category + ": " +await response)
             } catch (error) {
                 clientpublish.send(error)
             }
@@ -101,13 +120,13 @@ wss.on('connection', function connection(ws) {
         Controller(ws,data);
     });
     //atribui isAlive para o objeto ws de forma que fique acessivel a todo escopo
-    ws.isAlive = true;
+    ws.isAlive = 0;
     ws.on('pong',function(){
-        ws.isAlive = true
+        ws.isAlive = 0
     })
     //define um intervalo para os pings e mata clientes desconectados
     const interval = setInterval(()=>{
-           if(ws.isAlive == false){
+           if(ws.isAlive == 2){
                ws.terminate();
                clearInterval(interval);
                //percorre todas as keys do objeto, category retorna cada categoria
@@ -124,7 +143,7 @@ wss.on('connection', function connection(ws) {
            }
 
            ws.ping();
-           ws.isAlive=false;
-    },1000)
+           ws.isAlive= ws.isAlive+1;
+    },10000)
 });
 
