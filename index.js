@@ -68,7 +68,6 @@ function Controller(client,data) {
           }
     } catch (error) {
         client.send("formato errado");
-        console.log(error);
       }
 }
 
