@@ -2,7 +2,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require("dotenv").config();
-const port = process.env.SERVERPORT||3000
+const port = process.env.SERVERPORT||80
 
 
 app.get("/dowload/:filename",(req,res)=>{

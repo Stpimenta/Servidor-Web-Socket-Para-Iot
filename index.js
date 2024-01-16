@@ -15,7 +15,7 @@ console.log(`o servidor roda na porta ${Port}`);
 //====Funções que serão usadas no codigo=======//
 function Controller(client,data) { 
     try {
-        const MessageJson = JSON.parse(data);//pega a mensagem e conver para Json
+        const MessageJson = JSON.parse(data);//pega a mensagem e converte para Json
         if(MessageJson.metod){
             //leitura
             if(MessageJson.metod.toLowerCase() == "read"){
@@ -46,16 +46,6 @@ function Controller(client,data) {
                         client.send("verifique a conexão do "+categorytratada[position]);
                      }
                 }
-
-                // categorytratada.forEach((category,position) => {
-                //         console.log(position, category)
-                // });
-
-            //   if(Users[MessageJson.category]){
-            //     sendMessageToClients(MessageJson.category,MessageJson.mensagem,client, MessageJson.response)
-            //   }else{
-            //      client.send("Verifique a conexão do seu dispositico, e a categoria cadastrada!");
-            //    }
            } 
            
            //consultar categorias
@@ -114,7 +104,7 @@ function sendMessageToClients(category, message, clientpublish, publishresponse)
 //--abre uma instancia de conexão do servidor---//
 wss.on('connection', function connection(ws) {
     //mensagem que o cliente recebe quando se conecta
-    ws.send('bem vindo sou um servidor para controlar vc, para se cadastrar me envie uma mensagem com as seguintes informaçoes e no padrão json: { --obrigatorios--"category": "//categoria que deseja participar",     "metodo": "//publish,read,response ou main"      ---caso publish adicione a mensagem "mensagem":      -------caso espere uma resposta (opcional) "response":true}');
+   
     ws.on('message', function message(data) {
         Controller(ws,data);
     });
@@ -140,7 +130,6 @@ wss.on('connection', function connection(ws) {
                }
               
            }
-
            ws.ping();
            ws.isAlive= ws.isAlive+1;
     },10000)
