@@ -65,7 +65,7 @@ function Controller(client,data) {
 function sendMessageToClients(category, message, clientpublish, publishresponse) {
     Users[category].forEach(async (client)=>{
        client.send(message);
-       let time = message[0] == "u" ? 60000:5000
+       let time = message[0] == "u" ? 60000:5000//time, se for update é mais
        if(publishresponse == "true"){
             const response = new Promise ((resolve,reject)=>{
                 const returnmessage = (data) => {
@@ -132,6 +132,6 @@ wss.on('connection', function connection(ws) {
            }
            ws.ping();
            ws.isAlive= ws.isAlive+1;
-    },10000)
+    },120000 )
 });
 
