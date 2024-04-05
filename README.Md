@@ -54,6 +54,20 @@ yarn start/yarn dev iniciam, dev esta com nodemon
 
 
 
+-- proximas melhorias --
+
+  -- adoçao de uma arquitetura mais robusta baseado em microserviços.
+  -- a adoçao de uma melhor arquitetura visa permitir:
+
+      -- certificado ssl.
+      -- painel de controle  para visualizar os microcontroladores.
+      -- banco de dados para cada usuario ter seu grupo de microcontroladores.
+      -- maior segurança.
+      -- PRINCIPAL: OTIMIZAR A COMUNICAÇÃO.
+
+
+
+
 
 
 
